@@ -19,6 +19,10 @@ function pp_automated_cleaning(yearsIn,sitesIn,stages)
 %
 % Revisions:
 %
+% Mar 22, 2026 (Zoran)
+%   - Bug fix: used year instead of yearsIn when testing isscalar().
+%   - changed output messages to be more specific
+%   - added try-catch for all fr_automated_cleaning parallel processing calls
 
 % the defaults are:
 % - all sites, current year, stages 1 and 2
@@ -33,8 +37,8 @@ toolboxON = contains([allToolboxes(:).Name],'Parallel Computing');
 
 % if there is no PC toolbox or there is only one site and one year of data, 
 % call the regular fr_automated_cleaning:
-if ~toolboxON || (isscalar(sitesIn) && isscalar(years))
-    fprintf('Using regular cleaning\n');
+if ~toolboxON || (isscalar(sitesIn) && isscalar(yearsIn))
+    fprintf('Using single thread cleaning\n');
     fr_automated_cleaning(yearsIn,sitesIn,stages);
     return
 end
@@ -42,9 +46,13 @@ end
 % If there are multiple sites, parallel process across the sites
 % and return
 if length(sitesIn) > 1 %#ok<*UNRCH>
-    fprintf('Using parallel by sites\n');
+    fprintf('Using parallel processing (looping through sites)\n');
     parfor cntSites = 1:length(sitesIn)
-        fr_automated_cleaning(yearsIn,sitesIn(cntSites),stages);
+        try
+            fr_automated_cleaning(yearsIn,sitesIn(cntSites),stages);
+        catch
+            fprintf(2,'fr_automated_cleaning failed when running %s site!\n', char(sitesIn(cntSites)));
+        end  
     end
     return
 end
@@ -52,9 +60,13 @@ end
 % If there is a single site, parallel process across the years
 % and return
 if length(yearsIn) > 1
-    fprintf('Using parallel by years\n');
+    fprintf('Using parallel processing (looping by years)\n');
     parfor cntYears = 1:length(yearsIn)
-        fr_automated_cleaning(yearsIn(cntYears),sitesIn,stages);
+        try
+            fr_automated_cleaning(yearsIn(cntYears),sitesIn,stages);
+        catch
+            fprintf(2,'fr_automated_cleaning failed when running %d year!\n', yearsIn(cntYears));
+        end              
     end
     return
 end
