@@ -134,59 +134,6 @@ def get_stages_to_run(db_path, dfs_by_year, flux_name, flux_config) -> list:
     
     return stages
 
-"""
-def get_stages_to_run(db_path, dfs_by_year, config) -> list:
-    '''Smart procedure for determining how much of the pipeline needs to
-       be rerun for a given site. Returns a list of stages to run
-    '''
-    stages = [PREPROCESS, TRAIN, TEST, GAPFILL]
-    site_path = db_path / 'methane_gapfill_ml' / args.site
-
-    # Preprocess
-    try:
-        with open(site_path / 'run_info.json', 'r') as f:
-            run_info = json.load(f)
-        
-        hash_df = lambda df: hashlib.sha256(df.to_json().encode('utf-8')).hexdigest()
-        hashes = {year: hash_df(df) for year, df in dfs_by_year.items()}
-        assert run_info['config'] == config
-        assert run_info['hashes'] == hashes
-
-        for i in range(config['num_splits']):
-            assert os.path.exists(site_path / 'indices' / f'train{i}.npy')
-            assert os.path.exists(site_path / 'indices' / f'val{i}.npy')
-        assert os.path.exists(site_path / 'indices' / 'test.npy')
-        stages.remove(PREPROCESS)
-    except Exception as e:
-        # Data has changed, or some other fundamental part of the config.
-        # Scrap the entire directory and start over.
-        if os.path.exists(site_path):
-            shutil.rmtree(site_path)
-        print('Running pipeline from preprocess')
-        return stages
-
-    # Train
-    try:
-        for model in config['models']:
-            assert is_train_run_complete(site_path, model, config['num_splits'])
-        stages.remove(TRAIN)
-    except Exception as e:
-        print('Running pipeline from train')
-        return stages
-
-    # Test
-    try:
-        for model in config['models']:
-            assert os.path.exists(site_path / 'models' / model / 'test_metrics.csv')
-            assert os.path.exists(site_path / 'models' / model / 'test_predictions.csv')
-        stages.remove(TEST)
-    except Exception as e:
-        print('Running pipeline from test')
-        return stages
-    
-    return stages
-"""
-
 def is_train_run_complete(path, model, num_splits) -> bool:
     '''Checks if a given site has a full set of trained models'''
     for i in range(num_splits):
