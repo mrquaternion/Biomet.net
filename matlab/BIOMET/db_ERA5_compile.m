@@ -157,8 +157,8 @@ for i=1:length(varStr_file)
         % Interpolate data to be half-hourly
         x = 2.*(1:length(data))';
         xi = (1:(2*length(data)))';
-        tmp_interp = interp1(x,data,xi);
-        tv_interp = interp1(x,tv,xi);
+        tmp_interp = interp1(x,data,xi,'linear','extrap');
+        tv_interp = interp1(x,tv,xi,'linear','extrap');
         tv_interp = fr_round_time(tv_interp,'30min');
 
         % Add variable to structure

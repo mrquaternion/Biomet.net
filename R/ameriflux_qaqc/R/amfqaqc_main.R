@@ -206,7 +206,8 @@ if (!dir.exists(file.path(out.dir, check.ver))){
   dir.create(file.path(out.dir, check.ver))
 }
 
-path.out <- file.path(out.dir, check.ver)
+#path.out <- file.path(out.dir, check.ver)
+path.out <- out.dir # No longer creates a new subfolder every time Ameriflux QAQC is run
 
 ## list of data files
 comb.list.in <- list.files(args[2], ".csv")

@@ -9,27 +9,17 @@ function db_ERA5_data_retrieval(siteID,dateStart,dateEnd,biometPath,type)
 %   radiation; (4) surface pressure; and (5) total precipitation. This 
 %   could be modified so that the Python script accepts an optional input 
 %   for alternate/additional variables.
+% Time-series optimized data does not exist for the boundary layer height 
+%   variable, so it has to be downloaded using a TBD 'type' approach.
 %
 % Example(s):
 % --> Command line
 % db_ERA5_data_retrieval('DSM','2024-01-01','2025-12-31')
 %
-% --> First stage INI
-% [Trace]
-% 	variableName = 'ERA_API'
-% 	title = 'Used to call ERA API'
-% 	inputFileName = {'clean_tv'}
-% 	measurementType = 'met'
-% 	units = ''
-%   Evaluate = 'db_ERA5_data_retrieval(char("TST"),"2024-01-01","2025-12-31");
-%               db_ERA5_compile(char("TST"),1);'
-% [End]
-%
 %==========================================================================
 
 biomet_folder = 'Biomet.net';
 
-% Folder where current function is located
 if ispc
     pth_sep = '\';
     file_path = fileparts(which('db_ERA5_data_retrieval'));
@@ -43,16 +33,16 @@ elseif ismac
     root_pth = fullfile(pth_sep,path_parts{1:idx});
 end
 
-%if ispc
-%    pth_sep = '\';
-%elseif ismac
-%    pth_sep = '/';
-%end
+% if ispc
+%     pth_sep = '\';
+% elseif ismac
+%     pth_sep = '/';
+% end
 
 % Folder where current function is located
-%file_path = fileparts(which('db_ERA5_data_retrieval'));
-%path_parts = regexp(file_path,pth_sep,'split');
-%root_pth = sprintf("%s%s%s",path_parts{1},pth_sep,path_parts{2});
+% file_path = fileparts(which('db_ERA5_data_retrieval'));
+% path_parts = regexp(file_path,pth_sep,'split');
+% root_pth = sprintf("%s%s%s",path_parts{1},pth_sep,path_parts{2});
 
 % Default is to pull the past year of data
 tmp = today; %#ok<TTDAY1>
@@ -110,6 +100,51 @@ if isempty(lat) | isempty(lon)
     return
 end
 
+% Make sure that the lat-lon location corresponds with a ERA5-land land-sea
+%   mask value greater than 80%. Lower values can sometimes return NaN
+load('ERA5_land_lsm.mat','data')
+
+% Construct latitude and longitude matrix as 10× lsm grid spacing of
+%   0.1°×0.1°
+lon_era5 = int16((0:3599)');
+lat_era5 = int16((900:-1:-900)');
+[lon_era5,lat_era5] = ndgrid(lon_era5,lat_era5);
+
+lon_site = int16(10.*lon);
+lon_adj = 0;
+if lon_site<0
+    lon_site = 3600 + lon_site;
+    lon_adj = -360;
+end
+lat_site = int16(10.*lat);
+
+% Find location of site lat-lon in matrix
+minPoint = abs(lon_era5-lon_site) + abs(lat_era5-lat_site);
+[r,c] = find(minPoint==0,1,'first');
+
+if data.lsm(r,c)<80
+    % Find closest point with value greater than 80
+    lon_ROI = lon_era5((r-5):(r+5),(c-5):(c+5));
+    lat_ROI = lat_era5((r-5):(r+5),(c-5):(c+5));
+    lsm_ROI = data.lsm((r-5):(r+5),(c-5):(c+5));
+
+    % Convert coordinates to distance from site lat-lon
+    dist = hypot(double(lon_ROI-lon_site), double(lat_ROI-lat_site));
+    
+    % Find lsm in region of interest which are greater than 80
+    idx = lsm_ROI>80;
+    dist(~idx) = NaN;
+
+    % Points in the region of interest which are closest to the site
+    %   lat-lon and have an lsm greater than 80
+    minDist = dist==min(dist(:));
+    [r,c] = find(minDist==1);
+
+    % Since multiple results are equi-distant, take the first
+    lat = double(lat_ROI(r(1),c(1)))./10;
+    lon = double(lon_ROI(r(1),c(1)))./10;
+    lon = lon + lon_adj;
+end
 
 %% Run API request for ERA5 download
 %--> Retrieves hourly ERA5 data in one month batches
