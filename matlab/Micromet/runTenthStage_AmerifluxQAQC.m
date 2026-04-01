@@ -13,11 +13,16 @@ rootDatabasePath = findDatabasePath;
 pthDatabase = fullfile(rootDatabasePath,yy_str,siteID,'Clean','Ameriflux');
 
 % Temporary path used by "sw_in_pot_[]_multi"
-if ~ispc
+if length(pthDatabase)<64
     tmpPath = pthDatabase;
 else
-    if length(pthDatabase)<64
-        tmpPath = pthDatabase;
+    if ~ispc
+        % Define source and target directories
+        tmpPath = fullfile(getenv('HOME'),'/tmp_QAQC');
+
+        if ~isfolder(tmpPath)
+            mkdir(tmpPath)
+        end
     else
         tmpDrive = availableDriveLetter;
         
@@ -58,8 +63,8 @@ end
 % Command to launch R and execute ameriflux qaqc scripts
 %--> (1) R program; (2) R-script; (3) ameriflux qaqc
 %       R-scripts folder; (4) database folder; (5)
-%       ameriflux siteID; (6) latitude; (7) longitude; (8)
-%       time zone offset
+%       ameriflux siteID; (6) temp path (7) latitude; (8) longitude; 
+%       (9) time zone offset
 CLI_args = sprintf('"%s" --vanilla "%s" "%s" "%s" "%s" "%s" %2.4f %2.4f %i',...
     pthRbin,...
     fullfile(biometRpath,'ameriflux_qaqc','R','amf_chk_run.R'),...
@@ -87,8 +92,14 @@ fprintf('%s\n',cmdOutput)
 % Delete temporary directory created by amerifluxqaqc.R
 rmdir(fullfile(tmpPath,'temp'),'s')
 
+% Remove temporary mapped drive -- PC
 if exist("tmpDrive","var")
     system(sprintf('subst %s /d',tmpDrive));
+end
+
+% Remove temporary folder -- Mac
+if contains(tmpPath,'/tmp_QAQC')
+    rmdir(tmpPath,'s')
 end
 
 end

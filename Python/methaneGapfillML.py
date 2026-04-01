@@ -22,30 +22,32 @@ def main(args):
     db_path = Path(args.db_path)
     config = create_config(args)
 
-    dfs_by_year = read_database_traces(db_path, config)
-    stages_to_run = get_stages_to_run(db_path, dfs_by_year, config)
-    df_all = pd.concat(list(dfs_by_year.values()), axis=0).sort_index()
-    site_path = db_path / 'methane_gapfill_ml' / args.site
+    for flux_name, flux_config in config['fluxes'].items():
+        print(f"\n{'='*5} {flux_name.upper()} {'='*5}")
+        dfs_by_year = read_database_traces(db_path, config, flux_name, flux_config)
+        stages_to_run = get_stages_to_run(db_path, dfs_by_year, flux_name, flux_config)
+        df_all = pd.concat(list(dfs_by_year.values()), axis=0).sort_index()
+        site_path = db_path / 'methane_gapfill_ml' / args.site / flux_name
 
-    if PREPROCESS in stages_to_run:
-        setup_and_preprocess(site_path, dfs_by_year, config)
-    
-    if TRAIN in stages_to_run:
-        predictors = [str(Path(p).stem) for p in config['predictor_traces']]
-        fluxgapfill.train(site_path, df_all, config['models'], predictors)
+        if PREPROCESS in stages_to_run:
+            setup_and_preprocess(site_path, dfs_by_year, flux_config)
+        
+        if TRAIN in stages_to_run:
+            predictors = [str(Path(p).stem) for p in flux_config['preds_trace']]
+            fluxgapfill.train(site_path, df_all, flux_config['models'], predictors)
 
-    if TEST in stages_to_run:
-        fluxgapfill.test(site_path, df_all, config['models'])
-    
-    ml_dir = db_path / args.year / args.site / 'Clean' / 'ThirdStage_ML'
-    os.makedirs(ml_dir, exist_ok=True)
-    for model in config['models']:
-        df_gapfilled = fluxgapfill.gapfill(site_path, dfs_by_year[args.year], [model])
-        fch4_f = df_gapfilled['FCH4_F'].values.astype(config['dbase_metadata']['traces']['dtype'])
-        fch4_f_u = df_gapfilled['FCH4_F_UNCERTAINTY'].values.astype(config['dbase_metadata']['traces']['dtype'])
+        if TEST in stages_to_run:
+            fluxgapfill.test(site_path, df_all, flux_config['models'])
+        
+        ml_dir = db_path / args.year / args.site / 'Clean' / 'ThirdStage_ML' / flux_name
+        os.makedirs(ml_dir, exist_ok=True)
+        for model in flux_config['models']:
+            df_gapfilled = fluxgapfill.gapfill(site_path, dfs_by_year[args.year], [model])
+            flux_f = df_gapfilled[f'{flux_name.upper()}_F'].values.astype(config['dbase_metadata']['traces']['dtype'])
+            flux_f_u = df_gapfilled[f'{flux_name.upper()}_F_UNCERTAINTY'].values.astype(config['dbase_metadata']['traces']['dtype'])
 
-        fch4_f.tofile(ml_dir / f'FCH4_F_ML_{model.upper()}')
-        fch4_f_u.tofile(ml_dir / f'FCH4_F_ML_{model.upper()}_UNCERTAINTY')
+            flux_f.tofile(ml_dir / f'{flux_name.upper()}_F_ML_{model.upper()}')
+            flux_f_u.tofile(ml_dir / f'{flux_name.upper()}_F_ML_{model.upper()}_UNCERTAINTY')
 
 
 def create_config(args) -> dict:
@@ -72,24 +74,21 @@ def create_config(args) -> dict:
     return config
     
 
-def setup_and_preprocess(site_path, dfs_by_year, config):
+def setup_and_preprocess(site_path, dfs_by_year, flux_config):
     '''Creates the run directory and caches the config as JSON, then runs preprocess'''
     os.makedirs(site_path / 'indices')
     hash_df = lambda df: hashlib.sha256(df.to_json().encode('utf-8')).hexdigest()
     hashes = {year: hash_df(df) for year, df in dfs_by_year.items()}
     with open(site_path / 'run_info.json', 'w') as f:
-        json.dump({ 'config': config, 'hashes': hashes }, f)
+        json.dump({ 'config': flux_config, 'hashes': hashes }, f)
 
     all_df = pd.concat(list(dfs_by_year.values()), axis=0).sort_index()
-    fluxgapfill.preprocess(site_path, all_df, split_method=config['split_method'], n_train=config['num_splits'])
+    fluxgapfill.preprocess(site_path, all_df, split_method=flux_config['split_method'], n_train=flux_config['num_splits'])
 
 
-def get_stages_to_run(db_path, dfs_by_year, config) -> list:
-    '''Smart procedure for determining how much of the pipeline needs to
-       be rerun for a given site. Returns a list of stages to run
-    '''
+def get_stages_to_run(db_path, dfs_by_year, flux_name, flux_config) -> list:
+    site_path = db_path / 'methane_gapfill_ml' / args.site / flux_name
     stages = [PREPROCESS, TRAIN, TEST, GAPFILL]
-    site_path = db_path / 'methane_gapfill_ml' / args.site
 
     # Preprocess
     try:
@@ -98,10 +97,10 @@ def get_stages_to_run(db_path, dfs_by_year, config) -> list:
         
         hash_df = lambda df: hashlib.sha256(df.to_json().encode('utf-8')).hexdigest()
         hashes = {year: hash_df(df) for year, df in dfs_by_year.items()}
-        assert run_info['config'] == config
+        assert run_info['config'] == flux_config
         assert run_info['hashes'] == hashes
 
-        for i in range(config['num_splits']):
+        for i in range(flux_config['num_splits']):
             assert os.path.exists(site_path / 'indices' / f'train{i}.npy')
             assert os.path.exists(site_path / 'indices' / f'val{i}.npy')
         assert os.path.exists(site_path / 'indices' / 'test.npy')
@@ -113,11 +112,11 @@ def get_stages_to_run(db_path, dfs_by_year, config) -> list:
             shutil.rmtree(site_path)
         print('Running pipeline from preprocess')
         return stages
-
+    
     # Train
     try:
-        for model in config['models']:
-            assert is_train_run_complete(site_path, model, config['num_splits'])
+        for model in flux_config['models']:
+            assert is_train_run_complete(site_path, model, flux_config['num_splits'])
         stages.remove(TRAIN)
     except Exception as e:
         print('Running pipeline from train')
@@ -125,7 +124,7 @@ def get_stages_to_run(db_path, dfs_by_year, config) -> list:
 
     # Test
     try:
-        for model in config['models']:
+        for model in flux_config['models']:
             assert os.path.exists(site_path / 'models' / model / 'test_metrics.csv')
             assert os.path.exists(site_path / 'models' / model / 'test_predictions.csv')
         stages.remove(TEST)
@@ -134,7 +133,6 @@ def get_stages_to_run(db_path, dfs_by_year, config) -> list:
         return stages
     
     return stages
-
 
 def is_train_run_complete(path, model, num_splits) -> bool:
     '''Checks if a given site has a full set of trained models'''
@@ -146,7 +144,7 @@ def is_train_run_complete(path, model, num_splits) -> bool:
     return True
 
 
-def read_database_traces(db_path, config) -> dict:
+def read_database_traces(db_path, config, flux_name, flux_config) -> dict:
     """Reads binary data for a given site and returns a pandas DataFrame.
     Args:
         db_path (str): Path to the Database directory
@@ -156,19 +154,22 @@ def read_database_traces(db_path, config) -> dict:
     database_years = [d for d in os.listdir(db_path) if d.isnumeric()]
     for year in database_years:
         try:
-            dfs_by_year[year] = read_database_trace_by_year(db_path, year, config)
-        except FileNotFoundError as _:
-            print(f'Variables not found for year {year}. Skipping...')
+            dfs_by_year[year] = read_database_trace_by_year(db_path, year, config, flux_name, flux_config)
+        except FileNotFoundError as e:
+            print(f'Variables not found for year {year}. Skipping... but also: {e}')
     return dfs_by_year
 
 
-def read_database_trace_by_year(db_path, year, config) -> pd.DataFrame:
-    """Reads binary data for a given site and year, and returns a pandas DataFrame.
+
+def read_database_trace_by_year(db_path, year, config, flux_name, flux_config) -> pd.DataFrame:
+    """
+    Reads binary data for a given site and year, and returns a pandas DataFrame.
     Args:
         db_path (str): Path to the Database directory
         year (int): The year read in the Database
         config (dict): Configuration dictionary (contains the site)
     """
+    
     # Timestamps
     ts_cfg = config['dbase_metadata']['timestamp'] # for brevity
     timestamp_raw = np.fromfile(db_path / year / config['site'] / 'Clean' / 'SecondStage' / ts_cfg['name'], dtype=ts_cfg['dtype'])
@@ -180,16 +181,16 @@ def read_database_trace_by_year(db_path, year, config) -> pd.DataFrame:
 
     # Predictor traces
     trace_dtype = config['dbase_metadata']['traces']['dtype']
-    for trace in config['predictor_traces']:
+    for trace in flux_config['preds_trace']:
         trace_path = Path(trace)
         trace_name = trace_path.stem
         trace_values = np.fromfile(db_path / year / config['site'] / 'Clean' / trace_path, dtype=trace_dtype)
         df[trace_name] = trace_values
 
     # Methane
-    methane_values = np.fromfile(db_path / year / config['site'] / 'Clean' / Path(config['methane_trace']), dtype=trace_dtype)
-    df['FCH4'] = methane_values
-    return df
+    methane_values = np.fromfile(db_path / year / config['site'] / 'Clean' / Path(flux_config['trace']), dtype=trace_dtype)
+    df[flux_name.upper()] = methane_values
+    return df 
 
 
 if __name__ == "__main__":
@@ -197,6 +198,7 @@ if __name__ == "__main__":
     parser.add_argument("--site", type=str, required=True)
     parser.add_argument("--year", type=str, required=True)
     parser.add_argument("--db_path", type=str, required=True)
+    # parser.add_argument("--train", type=bool, required=True)
     args = parser.parse_args()
 
     main(args)
