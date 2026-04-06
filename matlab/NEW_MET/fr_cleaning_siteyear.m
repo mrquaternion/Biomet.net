@@ -32,6 +32,10 @@ function data_cleaned = fr_cleaning_siteyear(Year,SiteId,stage,db_ini)
 %
 % Revisions:
 %
+% Apr 6, 2026 (Zoran)
+%   - New feature: if there is a field "warnings" in an ini file the trace
+%     name and the warning will be listed at the end of the cleaning stage.
+%     Works for the 1st and the 2nd stage ini files.
 % Feb 3, 2025 (Zoran)
 %   - added postEvaluate field processing. Used the same way as the Evaluate statement but 
 %     it works on the trace *after* it's been 1st stage cleaned.
@@ -135,6 +139,9 @@ if stage == 1
         data_cleaned = data_depend;
     end
 
+    % Go through all data_cleaned traces. Find and print all warnings
+    printWarnings(stage,data_cleaned)
+
     % Save cleaning stats under Derived_variables. First remove
     % data fields to save space.    
     data_1st_stage_stats = rmfield(data_cleaned,'DOY');
@@ -150,6 +157,9 @@ end
 %------------------------------------------------------------------
 if stage == 2
     data_cleaned = read_data(Year(1),SiteId,ini_file_second);
+
+    % Go through all data_cleaned traces. Find and print all warnings
+    printWarnings(stage,data_cleaned)    
 end
 
 %------------------------------------------------------------------
@@ -160,3 +170,19 @@ if stage == 3
 end
 
 
+function printWarnings(stage,data_cleaned)
+
+    indWarnings = find(arrayfun(@(x) isfield(x.ini,'warnings') && ~isempty(x.ini.warnings), data_cleaned));
+    if ~isempty(indWarnings)
+        if stage == 1
+            strStage = '1st';
+        else
+            strStage = '2nd';
+        end
+        fprintf('**********************************************\n');
+        fprintf(2,'Warnings found in the %s stage cleaning:\n',strStage);
+        for cntW = indWarnings
+            fprintf('   %20s: %s\n',data_cleaned(cntW).variableName,data_cleaned(cntW).ini.warnings);
+        end
+        fprintf('**********************************************\n');
+    end
