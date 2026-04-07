@@ -13,6 +13,9 @@ function data_out = clean_traces(trace_str,interp_flag)
 
 % Revisions:
 %
+% Mar 31, 2026 (Zoran)
+%   - New feature: minMax can now have month-specific values for min and max. 
+%     For more information see findOutOfRangePoints().
 % Apr 8, 2024 (Zoran)
 %  - fixed a bug where the function didn't test if a field was empty before trying to 
 %    access it as an array. It affected "clampedMinMax".
@@ -64,7 +67,7 @@ end
 %If trace_str is a structure of traces, call helper function sequentially with each
 %trace variable inside the structure.
 %if isfield(trace_str,'ini')
-if length(trace_str) == 1
+if isscalar(trace_str)
    data_out = clean_one_trace(trace_str,interp_flag);
 else
    
@@ -209,14 +212,11 @@ end
 
 %Replace points outside limits indicated in the ini_file with NaN's.
 if isfield(trace_in.ini,'minMax') && ~isempty(trace_in.ini.minMax)
-   indmin = find(trace_in.data < trace_in.ini.minMax(1));
-   OutsideMin = length(indmin);  
-   indmax = find(trace_in.data > trace_in.ini.minMax(2));
-   OutsideMax= length(indmax);
-   trace_in.data(indmin) = NaN;
-   trace_in.data(indmax) = NaN; 
-   clean_flags = ta_set_ind(clean_flags,indmax,'union');
-   clean_flags = ta_set_ind(clean_flags,indmin,'union');   
+    [trace_in.data,indOutOfRangeMin,indOutOfRangeMax] = findOutOfRangePoints(trace_in.timeVector, trace_in.data, trace_in.ini.minMax);
+    OutsideMin = length(indOutOfRangeMin);  
+    OutsideMax= length(indOutOfRangeMax);
+    clean_flags = ta_set_ind(clean_flags,indOutOfRangeMin,'union');
+    clean_flags = ta_set_ind(clean_flags,indOutOfRangeMax,'union');   
 end
 
 %Replace points that are not NaNs, and fall outside the clamped parameters, with
