@@ -2,41 +2,13 @@ import cdsapi, sys, os, time
 # https://cds.climate.copernicus.eu/how-to-api
 # Input argument order:
 # [0] script; [1] start year; [2] end year; [3] start month; [4] end month
-#   [5] latitude; [6] longitude [7] output path
+#   [5] latitude; [6] longitude [7] output path [8] single variable [9] ERA5 dataset
 
-# Variable names
-var_str = list(("2m_dewpoint_temperature",
-        "2m_temperature",
-        "surface_solar_radiation_downwards",
-        "total_precipitation",
-        "10m_u_component_of_wind",
-        "10m_v_component_of_wind"))
+month_default = list(("01", "02", "03",
+                    "04", "05", "06",
+                    "07", "08", "09",
+                    "10", "11", "12"))
 
-if len(sys.argv)>1:
-    yr_st = int(sys.argv[1])
-    yr_end = int(sys.argv[2])
-    mnth_st = int(sys.argv[3])
-    mnth_end = int(sys.argv[4])
-    lat_1 = float(sys.argv[5]) + 0.1
-    lat_2 = float(sys.argv[5]) - 0.1
-    lon_1 = float(sys.argv[6]) - 0.1
-    lon_2 = float(sys.argv[6]) + 0.1
-else:
-    yr_st = 2021
-    yr_end = 2024
-    mnth_st = 1
-    mnth_end = 12
-    lat_1 = 45.1
-    lat_2 = 44.9
-    lon_1 = -110.1
-    lon_2 = -109.9
-
-# range(start,stop) -> from start to stop, not including stop
-year_rng = list(range(yr_st,yr_end+1))
-
-mnth_rng = list(range(mnth_st,mnth_end+1))
-
-dataset = "reanalysis-era5-land"
 # Baseline request to be modified by input arguments
 request = {
     "variable": ["surface_solar_radiation_downwards"],
@@ -70,34 +42,91 @@ request = {
     "area": [45.75, -110.25, 45.25, -109.75]
 }
 
+if len(sys.argv)>1:
+    yr_st = int(sys.argv[1])
+    yr_end = int(sys.argv[2])
+    mnth_st = int(sys.argv[3])
+    mnth_end = int(sys.argv[4])
+    lat_1 = float(sys.argv[5])
+    lat_2 = float(sys.argv[5])
+    lon_1 = float(sys.argv[6])
+    lon_2 = float(sys.argv[6])
+else:
+    yr_st = 2021
+    yr_end = 2024
+    mnth_st = 1
+    mnth_end = 12
+    lat_1 = 45.1
+    lat_2 = 44.9
+    lon_1 = -110.1
+    lon_2 = -109.9
+
+if len(sys.argv)>8:
+    var_str = list([str(sys.argv[8])])
+    dataset = str(sys.argv[9])
+else:
+    # Variable names if single variable not specified as input
+    var_str = list(("2m_dewpoint_temperature",
+            "2m_temperature",
+            "surface_solar_radiation_downwards",
+            "total_precipitation",
+            "10m_u_component_of_wind",
+            "10m_v_component_of_wind"))
+    dataset = "reanalysis-era5-land"
+
+if dataset=="reanalysis-era5-land":
+    resolution = 0.1
+elif dataset=="reanalysis-era5-single-levels":
+    resolution = 0.25
+    request["product_type"] = "reanalysis"
+    
+    
+# range(start,stop) -> from start to stop, not including stop
+year_rng = list(range(yr_st,yr_end+1))
+
+mnth_rng = list(range(mnth_st,mnth_end+1))
+
+
+
+
 #client = cdsapi.Client()
 client = cdsapi.Client(wait_until_complete=False, delete=False)
-request["area"] = [lat_1, lon_1, lat_2, lon_2]
+request["area"] = [lat_1+resolution, lon_1-resolution, lat_2-resolution, lon_2+resolution]
 
 for i in range(len(var_str)):
     variable = var_str[i]
     for j in range(len(year_rng)):
         year = str(year_rng[j])
-        for k in range(len(mnth_rng)):
-            month = str(mnth_rng[k])
-            filename = "{v}_{y}_{m}.nc".format(v=variable, y=year, m=month)
-            out_pth = str(sys.argv[7])
-            target = os.path.join(out_pth, filename)
-            request["variable"] = variable
-            request["month"] = month
-            request["year"] = year
+        
+        if j==0:
+            month = list(range(mnth_st,13))
+            month = [str(x) for x in month]
+        elif j==(len(year_rng)-1):
+            month = list(range(1,mnth_end+1))
+            month = [str(x) for x in month]
+        else:
+            month = list(range(1,13))
+            month = [str(x) for x in month]
+        
+        #month = str(mnth_rng[k])
+        filename = "{v}_{y}.nc".format(v=variable, y=year)
+        out_pth = str(sys.argv[7])
+        target = os.path.join(out_pth, filename)
+        request["variable"] = variable
+        request["month"] = month
+        request["year"] = year
+        
+        fileExists = os.path.isfile(target)
+        
+        if not fileExists:
+            print(f"\nStarting download for {filename} -> {target}")
+            result = client.retrieve(dataset, request)
             
-            fileExists = os.path.isfile(target)
-            
-            if not fileExists:
-                print(f"\nStarting download for {filename} -> {target}")
-                result = client.retrieve(dataset, request)
-                
-                try:
-                    result.download(target)
-                    print(f"\nFinished download for {filename}")
-                    time.sleep(1)
-                except:
-                    print(f"\nNo data found for {filename} or API error")
-            else:
-                print(f"\n{target} already exits.")
+            try:
+                result.download(target)
+                print(f"\nFinished download for {filename}")
+                time.sleep(1)
+            except:
+                print(f"\nNo data found for {filename} or API error")
+        else:
+            print(f"\n{target} already exits.")

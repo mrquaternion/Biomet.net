@@ -25,7 +25,7 @@
 ## Call from R terminal
 
 # # Giving database as an input
-# args <- c("F:/EcoFlux lab/Database","AB1",2025,2025)
+# args <- c("F:/EcoFlux lab/Database","BBS",2023,2024)
 # source("C:/Biomet.net/R/database_functions/ThirdStage.R")
 
 # # If current directory is the the root of a database
@@ -766,6 +766,7 @@ RF_GapFilling <- function(){
   retrain_interval <- config$Processing$ThirdStage$RF_GapFilling$retrain_every_n_months
   # Read function for RF gap-filling data
   p <- sapply(list.files(pattern="RandomForestModel.R", path=config$fx_path, full.names=TRUE), source)
+  
   # Check if dependent variable is available and run RF gap filling if it is
   for (fill_name in names(RFConfig)){
     print(fill_name)
@@ -773,7 +774,13 @@ RF_GapFilling <- function(){
       try({
         var_dep <- unlist(RFConfig[[fill_name]]$var_dep)
         predictors <- unlist(strsplit(RFConfig[[fill_name]]$Predictors, split = ","))
-        vars_in <- c(var_dep,predictors,"DateTime","DoY.x")
+        if ("DoYx" %in% colnames(input_data)){
+          vars_in <- c(var_dep,predictors,"DateTime","DoYx")
+        }
+        else if ("DoYx" %in% colnames(input_data)) {
+          vars_in <- c(var_dep,predictors,"DateTime","DoY.x")
+        }
+        vars_in <- c(var_dep,predictors,"DateTime","DoYx")
         log_path = file.path(db_root,'Calculation_Procedures/TraceAnalysis_ini',config$Metadata$siteID,'log')
         output <- RandomForestModel(input_data[,vars_in],fill_name,log = log_path,retrain_every_n_months = retrain_interval)
         use_existing_model <- output[2]
