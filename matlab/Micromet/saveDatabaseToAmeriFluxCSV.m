@@ -1,5 +1,5 @@
-function tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath)
-% tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn)
+function tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath,flagOutputPI)
+% tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath,flagOutputPI)
 %
 % Create a table of all Ameriflux variables that exist under
 % clean\SecondStage folder for one site and for one year.
@@ -12,7 +12,12 @@ function tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath)
 %  siteID       - a site ID using Biomet/Micromet naming convention ('YF','DSM'...)
 %  yearIn       - a year for which the output will be generated
 %  outputPath   - path where to save CSV file. If omitted, no file will be saved.
-%
+%  flagOutputPI - if TRUE, an optional set of PI variables from Micromet_ThirdStageNames_PI.txt
+%                 will be added to the output table. If saved, the file name will have "_PI" 
+%                 added to its name. 
+%                 if FALSE, only the variables from Micromet_ThirdStageNames.txt
+%                 (usually this file contains just the header: "Type","Variable") will be loaded and saved.
+%                 Default: FALSE (save only the standard Ameriflux variables)
 %
 % Example call:
 %  1. Load up 2022 DSM data into a table (without saving):
@@ -22,12 +27,18 @@ function tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath)
 %
 %
 % Zoran Nesic               File created:       Oct 20, 2022
-%                           Last modification:  Jun  3, 2025
+%                           Last modification:  Apr 13, 2026
 %
 
 %
 % Revisions:
 %
+% Apr 13, 2026 (Zoran)
+%   - Changed the default Ameriflux name from CA-siteID to CA-TMP
+%   - Added an optional input flagOutputPI. Default is FALSE.
+%       FALSE - only the 
+%     if TRUE, the list of optional PI variables from Micromet_ThirdStageNames_PI.txt
+%     will be saved.
 % Jun 3, 2025 (Zoran)
 %   - Added an option for getting the AmerifluxID from a site-specific yml file.
 % Feb 23, 2023 (Zoran)
@@ -42,6 +53,9 @@ function tableOut = saveDatabaseToAmeriFluxCSV(siteID,yearIn,outputPath)
 %   - added option to pass third stage variables to the table
 
 arg_default('outputPath',[]);
+arg_default('flagOutputPI',0);
+fileNameSuffix = '';
+
 pthDatabase = biomet_path(yearIn,siteID);
 
 pthDataIn{1} = fullfile(pthDatabase,'Clean','SecondStage');
@@ -52,6 +66,23 @@ pthDataIn{2} = fullfile(pthDatabase,'Clean','ThirdStage');
 pthListOfVarNames{2} = fullfile(db_pth_root,'Calculation_Procedures','AmeriFlux');
 afListOfVarNames{2} = readtable(fullfile(pthListOfVarNames{2},'Micromet_ThirdStageNames.txt'));
 
+if flagOutputPI
+    pthDataIn{3} = fullfile(pthDatabase,'Clean','ThirdStage');
+    pthListOfVarNames{3} = fullfile(db_pth_root,'Calculation_Procedures','AmeriFlux');
+    fileName = fullfile(pthListOfVarNames{2},'Micromet_ThirdStageNames_PI.txt');
+    if exist(fileName,'file')
+        % add the third set
+        afListOfVarNames{3} = readtable(fileName);
+        fileNameSuffix = '_PI';
+    else
+        % remove the third set
+        pthDataIn = pthDataIn(1:2);
+        pthListOfVarNames = pthListOfVarNames(1:2);
+    end
+
+end
+    
+
 % create an empty output structure
 structOut = struct;
 % Add time stamps.
@@ -59,7 +90,7 @@ tv = datetime(read_bor(fullfile(pthDataIn{1},'clean_tv'),8),'convertfrom','daten
 structOut.TIMESTAMP_START = datestr(tv-1/48,'yyyymmddhhMM');
 structOut.TIMESTAMP_END = datestr(tv,'yyyymmddhhMM');
 % cycle through both Second and Third stage
-for cntStage = 1:2
+for cntStage = 1:length(pthDataIn)
     % cycle through all Ameriflux variable names
     for cntVar = 1:size(afListOfVarNames{cntStage},1)
         varType = char(afListOfVarNames{cntStage}.Type(cntVar));
@@ -108,7 +139,9 @@ end
 if isfield(configYAML.Metadata,'AmerifluxID')
     siteNameAF = configYAML.Metadata.AmerifluxID;
 else
-    siteNameAF = ['CA-' upper(siteID)];
+    fprintf(2,'Ameriflux ID for this site needs to be added to %s_config.yml file.\n', siteID);
+    fprintf(2,'Using CA-TMP instead.\n');
+    siteNameAF = 'CA-TMP';
 end
 % export only data that older from today
 
@@ -119,9 +152,9 @@ if ~isempty(outputPath)
     if ~exist(outputPath,'dir')
         mkdir(outputPath)
     end
-    fileName = sprintf('%s_HH_%s_%s.csv',siteNameAF,...
+    fileName = sprintf('%s_HH_%s_%s%s.csv',siteNameAF,...
                              datestr(tv(1)-1/48,'yyyymmdd0000'),...
-                             datestr(tv(end),'yyyymmdd0000'));
+                             datestr(tv(end),'yyyymmdd0000'),fileNameSuffix);
     writetable(tableOut,fullfile(outputPath,fileName));
 end
 

@@ -39,10 +39,16 @@ function fr_automated_cleaning(Years,Sites,stages,db_out,db_ini)
 %    to use a local copy of the database.
 
 
-% kai* Feb 12, 2003                     Last modified: Jul  2, 2025
+% kai* Feb 12, 2003                     Last modified: Apr 13, 2026
 %
 % Revisions:
 % 
+% Apr 13, 2026 (Zoran)
+%   - Stage 8 can now ouput 2 different Ameriflux csv outputs. The one with only
+%     the standard Ameriflux variables (no PI stuff) using, usually header-only
+%     Micromet_ThirdStageNames.txt file. The second csv output file will be created
+%     if there is Micromet_ThirdStageNames_PI.txt available. 
+%     For more info see: saveDatabaseToAmeriFluxCSV()
 % Jul 2, 2025 (Zoran)
 %   - edited some comments and corrected the log file fprintf for stage 8 
 %     (it used to print "9" instead of "8").
@@ -352,6 +358,7 @@ for cntSites = 1:numOfSites
         
         %------------------------------------------------------------------
         % 9th stage is the methane-gapfill-ml python pipeline
+        % (this stage has to run before stage 8 !!!)
         %------------------------------------------------------------------
         if ~isempty(find(stages == 9))
             stage_str = '9-th';
@@ -368,7 +375,8 @@ for cntSites = 1:numOfSites
             stage_str = '8-th';
             disp(['============== ' stage_str ' stage. Exporting AmeriFlux csv file for: ' siteID ' ' yy_str ' ==============']);
             pathAF = fullfile(db_pth,num2str(yy(1)),siteID,'Clean','Ameriflux');
-            saveDatabaseToAmeriFluxCSV(siteID,yy(1),pathAF);            
+            saveDatabaseToAmeriFluxCSV(siteID,yy(1),pathAF);    % save only Ameriflux approved variables     
+            saveDatabaseToAmeriFluxCSV(siteID,yy(1),pathAF,1);  % save _PI version with additional PI variables
             fprintf('============== End of cleaning stage 8 =============\n'); 
         end
 
