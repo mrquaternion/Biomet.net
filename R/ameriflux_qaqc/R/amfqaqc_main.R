@@ -201,13 +201,14 @@ if (!dir.exists(file.path(temp.dir))){
   dir.create(file.path(temp.dir))
 }
 
+# No longer create a new subfolder every time Ameriflux QAQC is run
 check.ver <- gsub("[-: ]" , "", substr(Sys.time(), 1, 19))
-if (!dir.exists(file.path(out.dir, check.ver))){
-  dir.create(file.path(out.dir, check.ver))
-}
+# if (!dir.exists(file.path(out.dir, check.ver))){
+#   dir.create(file.path(out.dir, check.ver))
+# }
 
 #path.out <- file.path(out.dir, check.ver)
-path.out <- out.dir # No longer creates a new subfolder every time Ameriflux QAQC is run
+path.out <- out.dir
 
 ## list of data files
 comb.list.in <- list.files(args[2], ".csv")
