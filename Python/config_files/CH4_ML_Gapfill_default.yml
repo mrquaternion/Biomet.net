@@ -30,7 +30,7 @@ fluxes:
     preds_trace:
       - ThirdStage/SW_IN_1_1_1
       - ThirdStage/TA_1_1_1
-      - ThirdStage/VPD_1_1_1
+      - ThirdStage/VPD_1_1_1_F
       - ThirdStage/TS_1_1_1
       - ThirdStage/SWC_1_1_1
     models:
@@ -46,7 +46,7 @@ fluxes:
     preds_trace:
       - ThirdStage/SW_IN_1_1_1
       - ThirdStage/TA_1_1_1
-      - ThirdStage/VPD_1_1_1
+      - ThirdStage/VPD_1_1_1_F
       - ThirdStage/TS_1_1_1
       - ThirdStage/SWC_1_1_1
     models:
