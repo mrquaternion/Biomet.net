@@ -7,12 +7,23 @@ function fidLog = runThirdStageCleaningMethaneGapfillML(yearIn,siteID);
 % Arguments
 %   yearIn          - year to clean
 %   siteID          - site ID as a char
+%   TrainFill       - 1 runs all stages including training
+%                   - 0 uses an existing model and just gapfill
+    
+    % use existing model by default
+    % else call train_ML_gapfill(:_,:_) in your main_<siteID>.m
+    arg_default('TrainFill', 0); 
     
     pythonPath = findBiometPythonPath;
     scriptPath = fullfile(pythonPath, 'methaneGapfillML.py');
     databasePath = findDatabasePath;
-    command = sprintf('python "%s" --site %s --year %s --db_path %s', ...
-                      scriptPath, siteID, num2str(yearIn), databasePath);
+    if TrainFill == 1
+        command = sprintf('/opt/anaconda3/envs/biomet/bin/python "%s" --site %s --year %s --db_path %s --mode %s', ...
+                          scriptPath, siteID, num2str(yearIn), databasePath, 'full');
+    elseif TrainFill == 0
+        command = sprintf('/opt/anaconda3/envs/biomet/bin/python "%s" --site %s --year %s --db_path %s --mode %s', ...
+                          scriptPath, siteID, num2str(yearIn), databasePath, 'gapfill');
+    end
     status = system(command, '-echo');
    
 end
