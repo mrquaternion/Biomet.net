@@ -10,15 +10,80 @@ dbase_metadata:
     dtype: float32
     precision: 4
 
-methane_trace: ThirdStage/FCH4_PI_SC_JSZ_MAD_RP_uStar_orig
-predictor_traces:
-  - ThirdStage/H_PI_SC_JSZ_MAD_RP_uStar_f
-  - ThirdStage/LE_PI_SC_JSZ_MAD_RP_uStar_f
-  - ThirdStage/TA_1_1_1
-  - ThirdStage/SW_IN_1_1_1
-models:
-  - rf
-  - ann
-num_splits: 10
-split_method: artificial # chosen from ['random', 'artificial']
-imputation_method: model # chosen from ['mean', 'model']
+fluxes:
+  fch4:
+    trace: ThirdStage/FCH4_PI_SC_JSZ_MAD_RP_uStar_orig
+    preds_trace:
+      - ThirdStage/TS_1_1_1
+      - ThirdStage/TA_1_1_1
+      - ThirdStage/SWC_1_1_1
+    models:
+      - rf
+      - ann
+      - xgb
+    num_splits: 10
+    split_method: artificial # chosen from ['random', 'artificial']
+    imputation_method: model # chosen from ['mean', 'model']
+
+  nee:
+    trace: ThirdStage/NEE_PI_SC_JSZ_MAD_RP_uStar_orig
+    preds_trace:
+      - ThirdStage/SW_IN_1_1_1
+      - ThirdStage/TA_1_1_1
+      - ThirdStage/VPD_1_1_1_F
+      - ThirdStage/TS_1_1_1
+      - ThirdStage/SWC_1_1_1
+    models:
+      - rf
+      - ann
+      - xgb
+    num_splits: 10
+    split_method: artificial # chosen from ['random', 'artificial']
+    imputation_method: model # chosen from ['mean', 'model']
+
+  le:
+    trace: ThirdStage/LE_PI_SC_JSZ_MAD_RP_uStar_orig
+    preds_trace:
+      - ThirdStage/SW_IN_1_1_1
+      - ThirdStage/TA_1_1_1
+      - ThirdStage/VPD_1_1_1_F
+      - ThirdStage/TS_1_1_1
+      - ThirdStage/SWC_1_1_1
+    models:
+      - rf
+      - ann
+      - xgb
+    num_splits: 10
+    split_method: artificial # chosen from ['random', 'artificial']
+    imputation_method: model # chosen from ['mean', 'model']
+
+  h:
+    trace: ThirdStage/H_PI_SC_JSZ_MAD_RP_uStar_orig
+    preds_trace:
+      - ThirdStage/SW_IN_1_1_1
+      - ThirdStage/NETRAD_1_1_1
+      - ThirdStage/WS_1_1_1
+      - ThirdStage/TA_1_1_1
+      - ThirdStage/TS_1_1_1
+    models:
+      - rf
+      - ann
+      - xgb
+    num_splits: 10
+    split_method: artificial # chosen from ['random', 'artificial']
+    imputation_method: model # chosen from ['mean', 'model']
+
+  fno2:
+    trace: ThirdStage/H_PI_SC_JSZ_MAD_RP_uStar_orig
+    preds_trace:
+      - ThirdStage/H_PI_SC_JSZ_MAD_RP_uStar_f
+      - ThirdStage/LE_PI_SC_JSZ_MAD_RP_uStar_f
+      - ThirdStage/TA_1_1_1
+      - ThirdStage/SW_IN_1_1_1
+    models:
+      - rf
+      - ann
+      - xgb
+    num_splits: 10
+    split_method: artificial # chosen from ['random', 'artificial']
+    imputation_method: model # chosen from ['mean', 'model']
