@@ -176,7 +176,20 @@ def get_stages_to_run(site_path, dfs_by_year, flux_config, flux_label, mode) -> 
     stages = [PREPROCESS, TRAIN, TEST, GAPFILL]
     current_run_info = build_run_info(dfs_by_year, flux_config, flux_label)
 
-    # Preprocess
+    if mode == 'gapfill':
+        missing_models = [
+            model for model in flux_config['models']
+            if not is_gapfill_run_complete(site_path, model, flux_config['num_splits'])
+        ]
+        if missing_models:
+            missing_models_str = ', '.join(missing_models)
+            raise RuntimeError(
+                f'Gapfill mode requested, but trained/tested models are missing for flux "{flux_label}" '
+                f'(models: {missing_models_str}). Use train_ML_gapfill.m to train the model.'
+            )
+        return [GAPFILL]
+
+    # --- Preprocess ---
     try:
         with open(site_path / 'run_info.json', 'r') as f:
             run_info = json.load(f)
@@ -193,22 +206,19 @@ def get_stages_to_run(site_path, dfs_by_year, flux_config, flux_label, mode) -> 
         print('Running pipeline from preprocess')
         return stages
 
-    # Train
+    # --- Train ---
     train_complete = all(
         is_train_run_complete(site_path, model, flux_config['num_splits'])
         for model in flux_config['models']
     )
-    stages.remove(TRAIN)
 
     if not train_complete:
-        if mode == 'full':
-            print('Running pipeline from train')
-            return stages
-        raise RuntimeError(
-            f'Gapfill mode requested, but trained models are missing for flux "{flux_label}".'
-        )
+        print('Running pipeline from train')
+        return stages
+    else:
+        stages.remove(TRAIN)
 
-    # Test
+    # --- Test ---
     try:
         for model in flux_config['models']:
             assert os.path.exists(site_path / 'models' / model / 'test_metrics.csv')
@@ -222,13 +232,21 @@ def get_stages_to_run(site_path, dfs_by_year, flux_config, flux_label, mode) -> 
 
 
 def is_train_run_complete(path, model, num_splits) -> bool:
-    '''Checks if a given site has a full set of trained models'''
-    for i in range(num_splits):
-        if not os.path.exists(path / 'models' / model / f'{model}{i}.pkl'):
-            return False
-    if not os.path.exists(path / 'models' / model / 'val_metrics.csv'):
-        return False
-    return True
+    """Checks if a given site has a full set of trained models"""
+    model_dir = path / 'models' / model
+    return (
+        all(os.path.exists(model_dir / f'{model}{i}.pkl') for i in range(num_splits))
+        and os.path.exists(model_dir / 'val_metrics.csv')
+    )
+
+
+def is_gapfill_run_complete(path, model, num_splits) -> bool:
+    """Checks if a model has all artifacts required for gapfill-only runs."""
+    model_dir = path / 'models' / model
+    return (
+        is_train_run_complete(path, model, num_splits)
+        and os.path.exists(model_dir / 'scale.json')
+    )
 
 
 def read_database_traces(db_path, config, flux_name, flux_config) -> dict:
