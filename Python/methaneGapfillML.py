@@ -173,7 +173,6 @@ def setup_and_preprocess(site_path, dfs_by_year, flux_config, flux_label):
 
 
 def get_stages_to_run(site_path, dfs_by_year, flux_config, flux_label, mode) -> list:
-    stages = [PREPROCESS, TRAIN, TEST, GAPFILL]
     current_run_info = build_run_info(dfs_by_year, flux_config, flux_label)
 
     if mode == 'gapfill':
@@ -189,46 +188,48 @@ def get_stages_to_run(site_path, dfs_by_year, flux_config, flux_label, mode) -> 
             )
         return [GAPFILL]
 
-    # --- Preprocess ---
-    try:
-        with open(site_path / 'run_info.json', 'r') as f:
-            run_info = json.load(f)
+    elif mode == 'full': 
+        valid_stages = [PREPROCESS, TRAIN, TEST, GAPFILL]
+        # --- Preprocess ---
+        try:
+            with open(site_path / 'run_info.json', 'r') as f:
+                run_info = json.load(f)
+            assert run_info['preprocess_config'] == current_run_info['preprocess_config']
+            assert run_info['preprocess_hashes'] == current_run_info['preprocess_hashes']
+            assert has_complete_indices(site_path, flux_config['num_splits'])
+            valid_stages.remove(PREPROCESS)
+        except Exception as _:
+            if os.path.exists(site_path):
+                shutil.rmtree(site_path)
+            print('Running pipeline from preprocess')
+            return valid_stages
+        
+        # --- Train ---
+        try:
+            for model in flux_config['models']:
+                model_dir = site_path / 'models' / model
+                for i in range(flux_config['num_splits']):
+                    assert os.path.exists(model_dir / f'{model}{i}.pkl')
+                assert os.path.exists(model_dir / 'val_metrics.csv')
+            valid_stages.remove(TRAIN)
+        except Exception as _:
+            print('Running pipeline from train')
+            return valid_stages
+        
+        # --- Test ---
+        try:
+            for model in flux_config['models']:
+                assert os.path.exists(site_path / 'models' / model / 'test_metrics.csv')
+                assert os.path.exists(site_path / 'models' / model / 'test_predictions.csv')
+            valid_stages.remove(TEST)
+        except Exception as _:
+            print('Running pipeline from test')
+            return valid_stages
 
-        assert run_info['preprocess_config'] == current_run_info['preprocess_config']
-        assert run_info['preprocess_hashes'] == current_run_info['preprocess_hashes']
-        assert has_complete_indices(site_path, flux_config['num_splits'])
-        stages.remove(PREPROCESS)
-    except Exception as e:
-        # Data has changed, or some other fundamental part of the config.
-        # Scrap the entire directory and start over.
-        if os.path.exists(site_path):
-            shutil.rmtree(site_path)
-        print('Running pipeline from preprocess')
-        return stages
-
-    # --- Train ---
-    train_complete = all(
-        is_train_run_complete(site_path, model, flux_config['num_splits'])
-        for model in flux_config['models']
-    )
-
-    if not train_complete:
-        print('Running pipeline from train')
-        return stages
-    else:
-        stages.remove(TRAIN)
-
-    # --- Test ---
-    try:
-        for model in flux_config['models']:
-            assert os.path.exists(site_path / 'models' / model / 'test_metrics.csv')
-            assert os.path.exists(site_path / 'models' / model / 'test_predictions.csv')
-        stages.remove(TEST)
-    except Exception as e:
-        print('Running pipeline from test')
-        return stages
+        return valid_stages
     
-    return stages
+    else:
+        raise ValueError(f"The mode {mode} is invalid. Please use either 'full' or 'gapfill'.")
 
 
 def is_train_run_complete(path, model, num_splits) -> bool:
