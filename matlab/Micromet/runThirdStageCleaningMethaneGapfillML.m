@@ -1,5 +1,5 @@
-function fidLog = runThirdStageCleaningMethaneGapfillML(yearIn,siteID);
-% runThirdStageCleaningMethaneGapfillML(yearIn,siteID)
+function fidLog = runThirdStageCleaningMethaneGapfillML(yearIn,siteID,TrainFill);
+% runThirdStageCleaningMethaneGapfillML(yearIn,siteID,TrainFill)
 %
 % This function invokes Micromet third-stage cleaning Python pipeline.
 % Usually, it's called by fr_automated_cleaning()
