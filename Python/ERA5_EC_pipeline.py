@@ -1,4 +1,6 @@
 import cdsapi, sys, os, time
+from pathlib import Path
+
 # https://cds.climate.copernicus.eu/how-to-api
 # Input argument order:
 # [0] script; [1] start year; [2] end year; [3] start month; [4] end month
@@ -110,7 +112,7 @@ for i in range(len(var_str)):
         
         #month = str(mnth_rng[k])
         filename = "{v}_{y}.nc".format(v=variable, y=year)
-        out_pth = str(sys.argv[7])
+        out_pth = Path(str(sys.argv[7]))
         target = os.path.join(out_pth, filename)
         request["variable"] = variable
         request["month"] = month
