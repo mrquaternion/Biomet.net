@@ -15,17 +15,14 @@ pathToMatlabTemp = fullfile(tempdir,'MatlabTemp',siteID);
 
 biomet_folder = 'Biomet.net';
 
+file_path = fileparts(which('db_ERA5_data_retrieval'));
+path_parts = regexp(file_path,filesep,'split');
+idx = find(contains(path_parts,biomet_folder));
 if ispc
-    pth_sep = '\';
-    file_path = fileparts(which('db_ERA5_data_retrieval'));
-    path_parts = regexp(file_path,pth_sep,'split');
-    root_pth = sprintf("%s%s%s",path_parts{1},pth_sep,path_parts{2});
+    root_pth = fullfile(path_parts{1:idx});
+    % root_pth = sprintf("%s%s%s",path_parts{1},filesep,path_parts{2});
 elseif ismac
-    pth_sep = '/';
-    file_path = fileparts(which('db_ERA5_data_retrieval'));
-    path_parts = regexp(file_path,pth_sep,'split');
-    idx = find(contains(path_parts,biomet_folder));
-    root_pth = fullfile(pth_sep,path_parts{1:idx});
+    root_pth = fullfile(filesep,path_parts{1:idx});
 end
 
 ERA5_vars = readtable(fullfile(root_pth,'Python','ERA5 variables.csv'),'filetype','delimitedtext');

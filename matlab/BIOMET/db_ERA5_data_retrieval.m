@@ -24,16 +24,13 @@ function db_ERA5_data_retrieval(siteID,dateStart,dateEnd,biometPath,type)
 
 biomet_folder = 'Biomet.net';
 
+file_path = fileparts(which('db_ERA5_data_retrieval'));
+path_parts = regexp(file_path,filesep,'split');
+idx = find(contains(path_parts,biomet_folder));
 if ispc
-    pth_sep = '\';
-    file_path = fileparts(which('db_ERA5_data_retrieval'));
-    path_parts = regexp(file_path,pth_sep,'split');
-    root_pth = sprintf("%s%s%s",path_parts{1},pth_sep,path_parts{2});
+    root_pth = fullfile(path_parts{1:idx});
+    % root_pth = sprintf("%s%s%s",path_parts{1},pth_sep,path_parts{2});
 elseif ismac
-    pth_sep = '/';
-    file_path = fileparts(which('db_ERA5_data_retrieval'));
-    path_parts = regexp(file_path,pth_sep,'split');
-    idx = find(contains(path_parts,biomet_folder));
     root_pth = fullfile(pth_sep,path_parts{1:idx});
 end
 
@@ -163,7 +160,7 @@ if strcmp(type,'ts')
     %   [4] longitude; [5] output directory
     
     % Python script uses CDS API
-    cmd_str = sprintf("%s %s %s %3.1f %3.1f %s",pathToPythonScript,...
+    cmd_str = sprintf('"%s" %s %s %3.1f %3.1f "%s"',pathToPythonScript,...
         dateStart, dateEnd, lat, lon, pathToMatlabTemp);
 
 else
@@ -176,7 +173,7 @@ else
     
     if strcmp(type,'spatial')
         % Python script uses CDS API
-        cmd_str = sprintf("%s %d %d %d %d %3.4f %3.4f %s",pathToPythonScript,yearStart,...
+        cmd_str = sprintf('"%s" %d %d %d %d %3.4f %3.4f "%s"',pathToPythonScript,yearStart,...
             yearEnd,mnthStart,mnthEnd, lat, lon, pathToMatlabTemp);
     else
         % Get list of ERA5 variables
@@ -192,7 +189,7 @@ else
         end
 
         % Call to Python script, passing variable name for a single variable
-        cmd_str = sprintf("%s %d %d %d %d %3.4f %3.4f %s %s %s",pathToPythonScript,yearStart,...
+        cmd_str = sprintf('"%s" %d %d %d %d %3.4f %3.4f "%s" %s %s',pathToPythonScript,yearStart,...
             yearEnd,mnthStart,mnthEnd, lat, lon, pathToMatlabTemp,type,ERA5_dataset);
     end
 end

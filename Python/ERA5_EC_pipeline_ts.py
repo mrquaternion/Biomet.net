@@ -1,4 +1,6 @@
 import cdsapi, sys, os, time
+from pathlib import Path
+
 # https://cds.climate.copernicus.eu/how-to-api
 # Input argument order:
 # [0] script; [1] start date; [2] end date; [3] latitude;
@@ -42,7 +44,7 @@ for i in range(len(var_str)):
     variable = var_str[i]
     
     filename = "{v}.zip".format(v=variable)
-    out_pth = str(sys.argv[5])
+    out_pth = Path(str(sys.argv[5]))
     target = os.path.join(out_pth, filename)
     request["variable"] = variable
     request["location"]["longitude"] = lon
