@@ -166,8 +166,8 @@ def has_complete_indices(site_path, num_splits):
 
 def create_config(args) -> dict:
     '''Creates a configuration dictionary for the pipeline.
-       Reads in the default config, then updates using a custom config in TraceAnalysis_ini / CH4_ML_Gapfill.yml
-       Then updates with a site-specific config if it exists - in TraceAnalysis_ini / {site} / CH4_ML_Gapfill.yml
+       Reads in the default config, then updates using a custom config in TraceAnalysis_ini / ML_Gapfill.yml
+       Then updates with a site-specific config if it exists - in TraceAnalysis_ini / {site} / <siteID>_ML_Gapfill.yml
     '''
     trace_analysis_ini_path = Path(args.db_path) / 'Calculation_Procedures' / 'TraceAnalysis_ini'
     with open(DEFAULT_CONFIG_FILE, 'r') as f:
