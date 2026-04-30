@@ -1,16 +1,17 @@
-import yaml
-import numpy as np
-import argparse
-import fluxgapfill
-from pathlib import Path
+import os
+import sys
+import json
 import shutil
 import hashlib
+import argparse
+import subprocess
+import fluxgapfill
+import numpy as np
 import pandas as pd
-import os
-import json
+from pathlib import Path
 
 os.chdir(os.path.split(__file__)[0])
-DEFAULT_CONFIG_FILE = Path('./config_files/CH4_ML_Gapfill_default.yml')
+DEFAULT_CONFIG_FILE = Path('./config_files/ML_Gapfill_default.yml')
 
 # Aliases
 PREPROCESS = 1
@@ -22,8 +23,15 @@ TIMESTAMP_COLUMNS = ['TIMESTAMP_START', 'TIMESTAMP_END']
 
 
 def main(args):
+    # so you don't have to install pyyaml manually
+    import_pyyaml() 
+
     db_path = Path(args.db_path)
     config = create_config(args)
+
+    # added at the request of Haley
+    timestamp_filename = 'clean_tv'
+    copy_timestamp_to_trace_dirs(args.db_path, args.site, timestamp_filename)
 
     for flux_name, flux_config in config['fluxes'].items():
         # to overwrite the default by ignoring some fluxes, leave the flux config empty
@@ -77,6 +85,30 @@ def main(args):
             flux_f_u.tofile(ml_dir / f'{flux_label}_F_ML_{model.upper()}_UNCERTAINTY')
 
         print(f"{'-'*(len(flux_name)+12)}")
+
+
+def import_pyyaml():
+    global yaml
+    try:
+        import yaml
+    except ImportError:
+        print('The package pyyaml does not exist. Installing it right now.')
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml'])
+        import yaml
+
+
+def copy_timestamp_to_trace_dirs(db_path, site, timestamp_filename):
+    # if this is related to the dbase_metadata inside the ML_Gapfill_default.yaml file
+    # then a better way would be `timestamp_filename = config['dbase_metadata]['timestamp']['name']`
+    timestamp_source_path = Path(db_path) / site / 'Clean' / 'ThirdStage' / timestamp_filename
+    timestamp_dest_dir = Path(db_path) / site / 'Clean' / 'ThirdStage_ML'
+    for trace_dir in os.listdir(timestamp_dest_dir):
+        trace_dest_path = timestamp_dest_dir / trace_dir
+        try:
+            shutil.copy(timestamp_source_path, trace_dest_path)
+        except FileNotFoundError as e:
+            print(f"Could not copy timestamp `{timestamp_filename}` file: {e}")
+
 
 def deep_merge(base, override):
     """Recursively merges override into base and returns base."""
@@ -143,13 +175,13 @@ def create_config(args) -> dict:
     site = args.site
     config['site'] = site
     
-    custom_config_path = trace_analysis_ini_path  / 'CH4_ML_Gapfill.yml'
+    custom_config_path = trace_analysis_ini_path  / 'ML_Gapfill.yml'
     if os.path.exists(custom_config_path):
         with open(custom_config_path, 'r') as custom_ml_comfig_file:
             custom_config = yaml.safe_load(custom_ml_comfig_file)
             deep_merge(config, custom_config)
     
-    site_config_path = trace_analysis_ini_path / site / 'CH4_ML_Gapfill.yml'
+    site_config_path = trace_analysis_ini_path / site / f"{site}_ML_Gapfill.yml"
     if os.path.exists(site_config_path):
         with open(site_config_path, 'r') as site_ml_config_file:
             site_config = yaml.safe_load(site_ml_config_file)
